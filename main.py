@@ -59,7 +59,7 @@ class TextGenerator:
                 top_probs, top_indices = torch.topk(probs, top_k)
 
                 # Create table for this step
-                table = Table(title=f"Step {step + 1}: Top {top_k} Most Likely Next Tokens")
+                table = Table(title=f"Step {step + 1}: Top {top_k} Next Tokens")
                 table.add_column("Rank", justify="center", style="cyan")
                 table.add_column("Token", justify="left", style="magenta")
                 table.add_column("Probability", justify="right", style="green")
@@ -86,24 +86,33 @@ class TextGenerator:
 
         # Create final summary table
         self.console.print()
-        summary_table = Table(title="Generation Summary", show_header=False)
 
         # Add columns for each generated token
         tokens = self.tokenizer.encode(generated_text, return_tensors="pt")[0]
         generated_tokens = tokens[len(self.tokenizer.encode(prompt)):]
 
-        for _ in range(len(generated_tokens)):
-            summary_table.add_column(justify="center")
+        # Split into chunks of 10 columns
+        chunk_size = 10
+        for i in range(0, len(generated_tokens), chunk_size):
+            chunk_tokens = generated_tokens[i:i+chunk_size]
+            chunk_probs = probabilities_list[i:i+chunk_size]
 
-        # Add tokens row
-        token_row = [repr(self.tokenizer.decode([token_id])) for token_id in generated_tokens]
-        summary_table.add_row(*token_row, style="bold yellow")
+            title = f"Generation Summary (Tokens {i+1}-{i+len(chunk_tokens)})" if i == 0 else None
+            summary_table = Table(title=title, show_header=False)
 
-        # Add probabilities row
-        prob_row = [f"{prob:.4f}" for prob in probabilities_list]
-        summary_table.add_row(*prob_row, style="green")
+            for _ in range(len(chunk_tokens)):
+                summary_table.add_column(justify="center")
 
-        self.console.print(summary_table)
+            # Add tokens row
+            token_row = [repr(self.tokenizer.decode([token_id])) for token_id in chunk_tokens]
+            summary_table.add_row(*token_row, style="bold yellow")
+
+            # Add probabilities row
+            prob_row = [f"{prob:.4f}" for prob in chunk_probs]
+            summary_table.add_row(*prob_row, style="green")
+
+            self.console.print(summary_table)
+            self.console.print()
 
         return generated_text, probabilities_list
 
@@ -114,6 +123,6 @@ if __name__ == "__main__":
     generator = TextGenerator(model_name="gpt2")
     generator.generate_with_probabilities(
         prompt=prompt,
-        max_new_tokens=5,
+        max_new_tokens=30,
         top_k=3
     )
