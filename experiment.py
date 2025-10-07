@@ -67,13 +67,30 @@ def print_output(output_ids: list, output_tokens: list, output_probs: list, n: i
 
 def print_results(prompt: str, output_list: list):
     table_data = []
+    min_probs = []
+    mean_probs = []
+
     for i, output in enumerate(output_list, 1):
+        min_prob = min_probability(output['output_probs'])
+        mean_prob = mean_probability(output['output_probs'])
+        min_probs.append(min_prob)
+        mean_probs.append(mean_prob)
+
         table_data.append([
             f"{i}",
             output['output_tokens'],
-            f"{min_probability(output['output_probs']):.4f}",
-            f"{mean_probability(output['output_probs']):.4f}"
+            f"{min_prob:.4f}",
+            f"{mean_prob:.4f}"
         ])
+
+    # Add average row
+    table_data.append([
+        "Avg",
+        "",
+        f"{sum(min_probs) / len(min_probs):.4f}",
+        f"{sum(mean_probs) / len(mean_probs):.4f}"
+    ])
+
     print("=" * 100)
     print(f"Prompt: {prompt}")
     print("=" * 100)
@@ -81,16 +98,23 @@ def print_results(prompt: str, output_list: list):
     print(tabulate(table_data, headers=["Run", "Output", "Min Probability", "Mean Probability"]))
 
 if __name__ == '__main__':
+    prompts = [
+        "The capital of France is",  # Factual, low uncertainty expected
+        "In my opinion, the best movie ever made is",  # Subjective, high uncertainty
+        "Translate to French: Hello",  # May have multiple valid answers
+        "skdjfhskjdhf ksjdhfksjhdf"  # Nonsense, should have high knowledge uncertainty
+    ]
     model = Model(name="gpt2")
-    prompt = "The capital of France is"
     n = 5
 
-    output_list = []
-    for i in range(1, n + 1):
-        output = model.generate(prompt)
-        output_list.append(output)
-        print_output(**output, n=i)
+    for prompt in prompts:
 
-    print_results(prompt, output_list)
+        output_list = []
+        for i in range(1, n + 1):
+            output = model.generate(prompt)
+            output_list.append(output)
+            # print_output(**output, n=i)
+
+        print_results(prompt, output_list)
 
 
