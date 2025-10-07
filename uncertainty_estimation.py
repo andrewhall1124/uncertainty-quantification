@@ -14,23 +14,20 @@ class UncertaintyQuantifier:
     def __init__(
         self,
         model_name: str = "gpt2",
-        num_ensemble: int = 10,
         device: str = "cuda" if torch.cuda.is_available() else "mps" if torch.mps.is_available() else "cpu"
     ):
         """
         Args:
             model_name: Hugging Face model identifier
-            num_ensemble: Number of ensemble members (forward passes)
             device: Device to run on
         """
         self.device = device
-        self.num_ensemble = num_ensemble
-        
+
         # Load model and tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model = AutoModelForCausalLM.from_pretrained(model_name).to(device)
         self.model.eval()
-        
+
         # Set pad token if not exists
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
@@ -44,32 +41,34 @@ class UncertaintyQuantifier:
     def generate_ensemble_outputs(
         self,
         prompt: str,
+        num_ensemble: int,
         max_new_tokens: int = 50,
         temperature: float = 1.0,
         use_dropout: bool = True
     ) -> List[Dict]:
         """
         Generate multiple outputs to form an ensemble.
-        
+
         Args:
             prompt: Input prompt
+            num_ensemble: Number of ensemble members (forward passes)
             max_new_tokens: Maximum tokens to generate
             temperature: Sampling temperature
             use_dropout: Whether to use MC Dropout
-            
+
         Returns:
             List of dicts containing tokens, logits, and probabilities
         """
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
         input_length = inputs.input_ids.shape[1]
-        
+
         ensemble_outputs = []
-        
+
         if use_dropout:
             self.enable_dropout()
-        
+
         with torch.no_grad():
-            for _ in range(self.num_ensemble):
+            for _ in range(num_ensemble):
                 # Generate with temperature sampling
                 outputs = self.model.generate(
                     **inputs,
@@ -362,18 +361,27 @@ class UncertaintyQuantifier:
     def analyze_uncertainty(
         self,
         prompt: str,
+        num_ensemble: int = 10,
         max_new_tokens: int = 50,
         temperature: float = 1.0,
         use_dropout: bool = True
     ) -> Dict:
         """
         Complete uncertainty analysis combining all measures.
-        
+
+        Args:
+            prompt: Input prompt
+            num_ensemble: Number of ensemble members (forward passes)
+            max_new_tokens: Maximum tokens to generate
+            temperature: Sampling temperature
+            use_dropout: Whether to use MC Dropout
+
         Returns comprehensive uncertainty metrics for a given prompt.
         """
-        print(f"Generating {self.num_ensemble} ensemble predictions...")
+        print(f"Generating {num_ensemble} ensemble predictions...")
         ensemble_outputs = self.generate_ensemble_outputs(
             prompt,
+            num_ensemble=num_ensemble,
             max_new_tokens=max_new_tokens,
             temperature=temperature,
             use_dropout=use_dropout
@@ -392,7 +400,7 @@ class UncertaintyQuantifier:
         # Compile results
         results = {
             'prompt': prompt,
-            'ensemble_size': self.num_ensemble,
+            'ensemble_size': num_ensemble,
             'predictions': [out['text'] for out in ensemble_outputs],
             
             # Total Uncertainty
@@ -490,13 +498,13 @@ def example_basic():
     print("\n🔬 EXAMPLE 1: Basic Uncertainty Analysis\n")
     
     uq = UncertaintyQuantifier(
-        model_name="gpt2",
-        num_ensemble=10
+        model_name="gpt2"
     )
-    
+
     prompt = "The capital of France is"
     results = uq.analyze_uncertainty(
         prompt=prompt,
+        num_ensemble=10,
         max_new_tokens=20,
         temperature=0.8
     )
@@ -511,26 +519,26 @@ def example_compare_prompts():
     print("\n🔬 EXAMPLE 2: Comparing Different Prompts\n")
     
     uq = UncertaintyQuantifier(
-        model_name="gpt2",
-        num_ensemble=15
+        model_name="gpt2"
     )
-    
+
     prompts = [
         "The capital of France is",  # Factual, low uncertainty expected
         "In my opinion, the best movie ever made is",  # Subjective, high uncertainty
         "Translate to French: Hello",  # May have multiple valid answers
         "skdjfhskjdhf ksjdhfksjhdf"  # Nonsense, should have high knowledge uncertainty
     ]
-    
+
     results_comparison = []
-    
+
     for prompt in prompts:
         print(f"\n{'='*70}")
         print(f"Analyzing: {prompt}")
         print('='*70)
-        
+
         results = uq.analyze_uncertainty(
             prompt=prompt,
+            num_ensemble=15,
             max_new_tokens=15,
             temperature=0.9
         )
@@ -551,36 +559,35 @@ def example_out_of_domain_detection():
     print("\n🔬 EXAMPLE 3: Out-of-Domain Detection\n")
     
     uq = UncertaintyQuantifier(
-        model_name="gpt2",
-        num_ensemble=12
+        model_name="gpt2"
     )
-    
+
     # In-domain: Normal English
     in_domain_prompts = [
         "The weather today is",
         "My favorite food is",
         "In the year 2050, technology will"
     ]
-    
+
     # Out-of-domain: Foreign language, corrupted text
     out_domain_prompts = [
         "Le chat mange le",  # French
         "Der Hund ist",  # German
         "xkcd qwerty asdfgh"  # Gibberish
     ]
-    
+
     print("IN-DOMAIN PROMPTS:")
     in_domain_rmi = []
     for prompt in in_domain_prompts:
-        results = uq.analyze_uncertainty(prompt, max_new_tokens=10, temperature=0.7)
+        results = uq.analyze_uncertainty(prompt, num_ensemble=12, max_new_tokens=10, temperature=0.7)
         rmi = results['knowledge_uncertainty']['reverse_mutual_information']
         in_domain_rmi.append(rmi)
         print(f"  '{prompt}' -> RMI: {rmi:.4f}")
-    
+
     print("\nOUT-OF-DOMAIN PROMPTS:")
     out_domain_rmi = []
     for prompt in out_domain_prompts:
-        results = uq.analyze_uncertainty(prompt, max_new_tokens=10, temperature=0.7)
+        results = uq.analyze_uncertainty(prompt, num_ensemble=12, max_new_tokens=10, temperature=0.7)
         rmi = results['knowledge_uncertainty']['reverse_mutual_information']
         out_domain_rmi.append(rmi)
         print(f"  '{prompt}' -> RMI: {rmi:.4f}")
