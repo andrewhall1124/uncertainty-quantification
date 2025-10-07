@@ -17,7 +17,7 @@ def generate(prompt: str) -> dict:
         attention_mask=attention_mask,
         pad_token_id=tokenizer.eos_token_id,
         max_new_tokens=5,
-        temperature=.1,
+        temperature=1,
         do_sample=True,
         output_scores=True,
         return_dict_in_generate=True
@@ -46,28 +46,45 @@ def min_probability(token_probs: list) -> float:
 def mean_probability(token_probs: list) -> float:
     return sum(token_probs) / len(token_probs)
 
-def print_output(output_ids: list, output_tokens: list, output_probs: list):
-    print(type(output_tokens))
+def print_output(output_ids: list, output_tokens: list, output_probs: list, n: int):
     table_data = [
         [
             output_token, output_id, output_prob
         ]
         for output_token, output_id, output_prob in zip(output_tokens, output_ids, output_probs)
     ]
+    print("=" * 100)
+    print(f"Run {n}")
+    print("=" * 100)
+    print()    
     print(tabulate(table_data, headers=["Token", "ID", "Probability"]))
+    print()
 
-def print_results(output_ids: list, output_tokens: list, output_probs: list):
-    table_data = [["".join(output_tokens), f"{min_probability(output_probs):.4f}", f"{mean_probability(output_probs):.4f}"]]
+def print_results(prompt: str, output_list: list):
+    table_data = []
+    for i, output in enumerate(output_list, 1):
+        table_data.append([
+            f"{i}",
+            output['output_tokens'],
+            f"{min_probability(output['output_probs']):.4f}",
+            f"{mean_probability(output['output_probs']):.4f}"
+        ])
     print("=" * 100)
     print(f"Prompt: {prompt}")
     print("=" * 100)
     print()
-    print(tabulate(table_data, headers=["Output", "Min Probability", "Mean Probability"]))
+    print(tabulate(table_data, headers=["Run", "Output", "Min Probability", "Mean Probability"]))
 
 if __name__ == '__main__':
     prompt = "The capital of France is"
-    output = generate(prompt)
-    print_output(**output)
-    print_results(**output)
+    n = 5
+
+    output_list = []
+    for i in range(1, n + 1):
+        output = generate(prompt)
+        output_list.append(output)
+        print_output(**output, n=i)
+
+    print_results(prompt, output_list)
 
 
