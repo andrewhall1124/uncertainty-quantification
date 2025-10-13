@@ -4,8 +4,8 @@ from tabulate import tabulate
 
 class Model:
     def __init__(self, name: str):
-        self.model = AutoModelForCausalLM.from_pretrained('gpt2')
-        self.tokenizer = AutoTokenizer.from_pretrained('gpt2')
+        self.model = AutoModelForCausalLM.from_pretrained(name)
+        self.tokenizer = AutoTokenizer.from_pretrained(name)
 
     def generate(self, prompt: str) -> dict:
 
@@ -20,7 +20,7 @@ class Model:
             attention_mask=attention_mask,
             pad_token_id=self.tokenizer.eos_token_id,
             max_new_tokens=5,
-            temperature=0.5,
+            temperature=.5,
             do_sample=True,
             output_scores=True,
             return_dict_in_generate=True
@@ -52,8 +52,8 @@ def mean_probability(token_probs: list) -> float:
 def print_output(output_ids: list, output_tokens: list, output_probs: list, n: int):
     table_data = [
         [
-            f"{output_token:.4}", 
-            f"{output_id:.4f}", 
+            f"{output_token}", 
+            f"{output_id}", 
             f"{output_prob:.4f}"
         ]
         for output_token, output_id, output_prob in zip(output_tokens, output_ids, output_probs)
@@ -96,16 +96,16 @@ def print_results(prompt: str, output_list: list):
     print("=" * 100)
     print()
     print(tabulate(table_data, headers=["Run", "Output", "Min Probability", "Mean Probability"]))
+    print()
 
 if __name__ == '__main__':
     prompts = [
         "The capital of France is",  # Factual, low uncertainty expected
-        "In my opinion, the best movie ever made is",  # Subjective, high uncertainty
-        "Translate to French: Hello",  # May have multiple valid answers
-        "skdjfhskjdhf ksjdhfksjhdf"  # Nonsense, should have high knowledge uncertainty
+        # "In my opinion, the best movie ever made is",  # Subjective, high uncertainty
+        # "skdjfhskjdhf ksjdhfksjhdf"  # Nonsense, should have high knowledge uncertainty
     ]
     model = Model(name="gpt2")
-    n = 5
+    n = 30
 
     for prompt in prompts:
 
@@ -113,7 +113,7 @@ if __name__ == '__main__':
         for i in range(1, n + 1):
             output = model.generate(prompt)
             output_list.append(output)
-            # print_output(**output, n=i)
+            print_output(**output, n=i)
 
         print_results(prompt, output_list)
 
