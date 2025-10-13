@@ -20,7 +20,7 @@ class Model:
             attention_mask=attention_mask,
             pad_token_id=self.tokenizer.eos_token_id,
             max_new_tokens=5,
-            temperature=.5,
+            temperature=1,
             do_sample=True,
             output_scores=True,
             return_dict_in_generate=True
@@ -101,8 +101,8 @@ def print_results(prompt: str, output_list: list):
 if __name__ == '__main__':
     prompts = [
         "The capital of France is",  # Factual, low uncertainty expected
-        # "In my opinion, the best movie ever made is",  # Subjective, high uncertainty
-        # "skdjfhskjdhf ksjdhfksjhdf"  # Nonsense, should have high knowledge uncertainty
+        "In my opinion, the best movie ever made is",  # Subjective, high uncertainty
+        "skdjfhskjdhf ksjdhfksjhdf"  # Nonsense, should have high knowledge uncertainty
     ]
     model = Model(name="gpt2")
     n = 30
@@ -113,7 +113,7 @@ if __name__ == '__main__':
         for i in range(1, n + 1):
             output = model.generate(prompt)
             output_list.append(output)
-            print_output(**output, n=i)
+            # print_output(**output, n=i)
 
         print_results(prompt, output_list)
 
