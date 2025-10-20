@@ -87,8 +87,14 @@ class AzureOpenAIModel(Model):
 def min_probability(token_probs: list) -> float:
     return min(token_probs)
 
-def mean_probability(token_probs: list) -> float:
-    return sum(token_probs) / len(token_probs)
+def normalized_probability(token_probs: list) -> float:
+    """Calculate length-normalized probability (geometric mean)."""
+    if not token_probs:
+        return 0.0
+    product = 1.0
+    for prob in token_probs:
+        product *= prob
+    return product ** (1.0 / len(token_probs)) 
 
 def print_output(output_ids: list, output_tokens: list, output_probs: list, n: int):
     table_data = [
@@ -113,47 +119,50 @@ def print_results(prompt: str, output_list: list):
 
     for i, output in enumerate(output_list, 1):
         min_prob = min_probability(output['output_probs'])
-        mean_prob = mean_probability(output['output_probs'])
+        mean_prob = normalized_probability(output['output_probs'])
         min_probs.append(min_prob)
         mean_probs.append(mean_prob)
 
         table_data.append([
             f"{i}",
+            # "".join(output['output_tokens']),
             output['output_tokens'],
+            f"{mean_prob:.4f}",
             f"{min_prob:.4f}",
-            f"{mean_prob:.4f}"
         ])
 
     # Add average row
     table_data.append([
         "Avg",
         "",
+        f"{sum(mean_probs) / len(mean_probs):.4f}",
         f"{sum(min_probs) / len(min_probs):.4f}",
-        f"{sum(mean_probs) / len(mean_probs):.4f}"
     ])
 
     print("=" * 100)
     print(f"Prompt: {prompt}")
     print("=" * 100)
     print()
-    print(tabulate(table_data, headers=["Run", "Output", "Min Probability", "Mean Probability"]))
+    print(tabulate(table_data, headers=["Run", "Output", "Normalized Probability", "Min Probability"]))
     print()
 
 if __name__ == '__main__':
     prompts = [
-        "The capital of France is",  # Factual, low uncertainty expected
-        "In my opinion, the best movie ever made is",  # Subjective, high uncertainty
-        "skdjfhskjdhf ksjdhfksjhdf"  # Nonsense, should have high knowledge uncertainty
+        # "The capital of France is",  # Factual, low uncertainty expected
+        # "In my opinion, the best movie ever made is",  # Subjective, high uncertainty
+        # "skdjfhskjdhf ksjdhfksjhdf"  # Nonsense, should have high knowledge uncertainty
+        "How many r's are there in the word strawberry?",
+        "What is 2 + 5?",
     ]
 
     model = AzureOpenAIModel(
         deployment_name="gpt-4.1-nano",
         api_version="2024-12-01-preview",
         temperature=1,  # User to set temperature
-        max_tokens=10
+        max_tokens=100
     )
 
-    n = 1
+    n = 5
 
     for prompt in prompts:
 
